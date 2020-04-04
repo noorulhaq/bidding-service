@@ -11,3 +11,7 @@ bin
 .factorypath
 .settings
 logs
+.sbtopts
+.idea
+.DS_Store
+project
