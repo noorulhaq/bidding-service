@@ -16,7 +16,7 @@ class AuctionAggregateSpec extends ScalaTestWithActorTestKit(s"""
     """) with FeatureSpecLike with GivenWhenThen with Matchers {
 
 
-  scenario("As an auctioneer, I should be able to start an auction for a specific product, so that it is open for bidding") {
+  scenario("As an auctioneer, I should be able to start auction for a specific product, so that it is open for bidding") {
 
     Given("An auctioneer and a product")
     val auctioneer = UUID.randomUUID
@@ -29,6 +29,23 @@ class AuctionAggregateSpec extends ScalaTestWithActorTestKit(s"""
 
     Then("auction should be running")
     probe.expectMessage(Accepted(Running))
+  }
+
+  scenario("As an auctioneer, I should not be able to start auction for a product for which auction is already open") {
+
+    Given("An auction is already started")
+    val auctioneer = UUID.randomUUID
+    val product = UUID.fromString("8656a5e2-0a21-41d5-9e47-f651402b5e0b")
+    val probe = createTestProbe[Confirmation]()
+    val ref = spawn(AuctionBehavior.create(PersistenceId("Auction",product.toString)))
+    ref ! StartAuction(auctioneer, product, Bid(auctioneer, 10d, Instant.now), Instant.now.plusSeconds(60), probe.ref)
+
+    When("auction is started again")
+    ref ! StartAuction(auctioneer, product, Bid(auctioneer, 10d, Instant.now), Instant.now.plusSeconds(60), probe.ref)
+
+    Then("bidding service should reject")
+    probe.expectMessage(Accepted(Running))
+    probe.expectMessage(Rejected("Auction for product 8656a5e2-0a21-41d5-9e47-f651402b5e0b is already open for bidding."))
   }
 
 

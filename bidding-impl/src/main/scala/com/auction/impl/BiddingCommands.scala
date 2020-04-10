@@ -39,6 +39,7 @@ package object BiddingCommands {
   }
 
   def running(auction:Auction, cmd: AuctionCommand): ReplyEffect[BiddingEvent, Auction] = cmd match {
+    case StartAuction(_, product, _, _, replyTo) => Effect.reply(replyTo)(Rejected(s"Auction for product $product is already open for bidding."))
     case OfferBid(bidder, amount, replyTo) =>
       Effect.persist(BidRegistered(Bid(bidder, amount, Instant.now))).thenReply(replyTo)(a => Accepted(a.phase))
     case GetHighestBid(replyTo) => Effect.reply(replyTo)(auction.highestBid)

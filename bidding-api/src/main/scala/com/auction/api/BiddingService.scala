@@ -85,8 +85,3 @@ trait BiddingService extends Service {
     implicit val format: Format[HighestBid] = Json.format[HighestBid]
   }
 }
-
-
-
-
-

@@ -3,15 +3,15 @@ package com.auction.impl
 import java.time.Instant
 import java.util.UUID
 
-import akka.{NotUsed}
+import akka.NotUsed
 import com.auction.api.BiddingService
 import akka.cluster.sharding.typed.scaladsl.{ClusterSharding, EntityRef}
-import com.lightbend.lagom.scaladsl.api.{ServiceCall}
+import com.lightbend.lagom.scaladsl.api.ServiceCall
 import com.lightbend.lagom.scaladsl.persistence.{EventStreamElement, PersistentEntityRegistry}
 import BiddingCommands._
 import akka.util.Timeout
 import com.auction.impl.Auction._
-import com.lightbend.lagom.scaladsl.api.broker.{Topic}
+import com.lightbend.lagom.scaladsl.api.broker.Topic
 import com.lightbend.lagom.scaladsl.api.transport.BadRequest
 import com.lightbend.lagom.scaladsl.broker.TopicProducer
 
@@ -49,8 +49,8 @@ class BiddingServiceImpl(
 
   override def startAuction(): ServiceCall[NewAuction, String] = ServiceCall {
 
-    val auctionId = UUID.randomUUID().toString;
-    newAuction =>
+    newAuction => {
+      val auctionId = newAuction.product
       // Look up the sharded entity (aka the aggregate instance) for the given ID.
       val auction = entityRef(auctionId)
 
@@ -63,10 +63,12 @@ class BiddingServiceImpl(
           replyTo)
 
       auction.ask[Confirmation](replyTo => startAuctionCommand(replyTo))
-      .map{
-        case Accepted(Running) => auctionId
-        case _ => throw BadRequest("Unable to start auction.")
-      }
+        .map {
+          case Accepted(Running) => auctionId
+          case Rejected(msg) => throw BadRequest(msg)
+          case _ => throw BadRequest("Unable to start auction.")
+        }
+    }
   }
 
   override def offerBid(id: String): ServiceCall[NewBid, String] = ServiceCall {
