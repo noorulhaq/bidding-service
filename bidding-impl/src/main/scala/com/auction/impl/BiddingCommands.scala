@@ -43,7 +43,7 @@ package object BiddingCommands {
     case OfferBid(bidder, amount, replyTo) =>
       Effect.persist(BidRegistered(Bid(bidder, amount, Instant.now))).thenReply(replyTo)(a => Accepted(a.phase))
     case GetHighestBid(replyTo) => Effect.reply(replyTo)(auction.highestBid)
-    case FinishAuction(replyTo) => Effect.persist(AuctionFinished).thenReply(replyTo)(a => Accepted(a.phase))
+    case FinishAuction(replyTo) => Effect.persist(AuctionFinished(auction.highestBid)).thenReply(replyTo)(a => Accepted(a.phase))
     case IsClosed(replyTo) => Effect.reply(replyTo)(Accepted(Running))
   }
 

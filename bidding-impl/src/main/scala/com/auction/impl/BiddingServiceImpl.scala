@@ -2,7 +2,6 @@ package com.auction.impl
 
 import java.time.Instant
 import java.util.UUID
-
 import akka.NotUsed
 import com.auction.api.BiddingService
 import akka.cluster.sharding.typed.scaladsl.{ClusterSharding, EntityRef}
@@ -14,11 +13,10 @@ import com.auction.impl.Auction._
 import com.lightbend.lagom.scaladsl.api.broker.Topic
 import com.lightbend.lagom.scaladsl.api.transport.BadRequest
 import com.lightbend.lagom.scaladsl.broker.TopicProducer
-
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext
 /**
-  * Implementation of the AuctionService.
+  * Implementation of the BiddingService.
   */
 class BiddingServiceImpl(
   clusterSharding: ClusterSharding,
@@ -59,7 +57,7 @@ class BiddingServiceImpl(
           UUID.fromString(newAuction.product),
           Bid(UUID.fromString(newAuction.auctioneer),
             10d, Instant.now),
-          Instant.now.plusSeconds(86400),
+          Instant.now.plusSeconds(30),
           replyTo)
 
       auction.ask[Confirmation](replyTo => startAuctionCommand(replyTo))
@@ -99,18 +97,21 @@ class BiddingServiceImpl(
       }
   }
 
-  override def auctionsTopic(): Topic[AuctionStarted] =
+  override def auctionsTopic(): Topic[PublishableBiddingEvent] =
     TopicProducer.singleStreamWithOffset { fromOffset =>
       persistentEntityRegistry
         .eventStream(BiddingEvents.BiddingEvent.Tag, fromOffset)
         .map(ev => (convertEvent(ev), ev.offset))
     }
 
-    private def convertEvent(ese: EventStreamElement[BiddingEvents.BiddingEvent]): AuctionStarted = {
+    private def convertEvent(ese: EventStreamElement[BiddingEvents.BiddingEvent]): PublishableBiddingEvent = {
       ese.event match {
-        case BiddingEvents.AuctionStarted(auctioneer, product, initialBid, closingAt) => {
+        case BiddingEvents.AuctionStarted(auctioneer, product, initialBid, closingAt) =>
           AuctionStarted(ese.entityId, auctioneer.toString, product.toString, initialBid.offer, closingAt)
-        }
+        case BiddingEvents.BidRegistered(bid) =>
+          BidRegistered(ese.entityId, bid.bidder.toString,bid.offer,bid.timestamp)
+        case BiddingEvents.AuctionFinished(highestBid) =>
+          AuctionFinished(ese.entityId, highestBid.bidder.toString,highestBid.offer,highestBid.timestamp)
       }
     }
 }

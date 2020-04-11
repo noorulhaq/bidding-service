@@ -18,13 +18,13 @@ package object BiddingEvents {
 
   case class BidRegistered(bid: Bid) extends BiddingEvent
 
-  case object AuctionFinished extends BiddingEvent
+  case class AuctionFinished(bid: Bid) extends BiddingEvent
 
   val eventHandler : (Auction,BiddingEvent) => Auction = (auction, evt) =>
     evt match {
       case AuctionStarted(auctioneer, product, initialBid, closingAt) => auction.copy(auctioneer, product, initialBid, closingAt, Running)
       case BidRegistered(bid) => if(isHighestBid(bid,auction.highestBid)) withHighestBid(auction,bid) else auction
-      case AuctionFinished => auction.copy(phase = Closed)
+      case AuctionFinished(_) => auction.copy(phase = Closed)
     }
 
   def withHighestBid(auction:Auction, bid: Bid): Auction = {

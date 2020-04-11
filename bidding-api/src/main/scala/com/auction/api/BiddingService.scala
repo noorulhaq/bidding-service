@@ -1,12 +1,13 @@
 package com.auction.api
 
 import java.time.Instant
-import akka.{Done, NotUsed}
+import akka.{NotUsed}
 import com.lightbend.lagom.scaladsl.api.broker.{Message, Topic}
 import com.lightbend.lagom.scaladsl.api.broker.kafka.{KafkaProperties, PartitionKeyStrategy}
 import com.lightbend.lagom.scaladsl.api.{Descriptor, Service, ServiceCall}
-import play.api.libs.json.{Format, Json}
+import play.api.libs.json._
 import com.lightbend.lagom.scaladsl.api.transport.Method
+import julienrf.json.derived
 
 object BiddingService  {
   val TOPIC_NAME = "auctionEvents"
@@ -30,7 +31,7 @@ trait BiddingService extends Service {
 
   def close(id: String): ServiceCall[NotUsed,String]
 
-  def auctionsTopic(): Topic[AuctionStarted]
+  def auctionsTopic(): Topic[PublishableBiddingEvent]
 
   override final def descriptor: Descriptor = {
     import Service._
@@ -53,7 +54,7 @@ trait BiddingService extends Service {
           // name as the partition key.
           .addProperty(
             KafkaProperties.partitionKeyStrategy,
-            PartitionKeyStrategy[AuctionStarted](_.auctionId)
+            PartitionKeyStrategy[PublishableBiddingEvent](_.auctionId)
           )
       )
       .withAutoAcl(true)
@@ -61,7 +62,15 @@ trait BiddingService extends Service {
   // @formatter:on
 
 
-  case class AuctionStarted(auctionId: String,auctioneer: String, product: String, initialBid: Double,closingAt: Instant)
+  sealed trait PublishableBiddingEvent{
+    def auctionId: String
+  }
+
+  case class AuctionStarted(auctionId: String,auctioneer: String, product: String, initialBid: Double,closingAt: Instant) extends PublishableBiddingEvent
+
+  case class BidRegistered(auctionId: String,bidder: String, offer: Double, timestamp: Instant) extends PublishableBiddingEvent
+
+  case class AuctionFinished(auctionId: String,bidder: String, offer: Double, timestamp: Instant) extends PublishableBiddingEvent
 
   case class NewAuction(auctioneer: String, product: String)
 
@@ -69,8 +78,8 @@ trait BiddingService extends Service {
 
   case class HighestBid(bidder: String, offer: Double, timestamp: Instant)
 
-  object AuctionStarted {
-    implicit val format: Format[AuctionStarted] = Json.format[AuctionStarted]
+  object PublishableBiddingEvent {
+    implicit val format: OFormat[PublishableBiddingEvent] = derived.flat.oformat((__ \ "event_type").format[String])
   }
 
   object NewAuction {

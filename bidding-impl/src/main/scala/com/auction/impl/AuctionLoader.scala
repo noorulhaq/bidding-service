@@ -15,20 +15,22 @@ import com.softwaremill.macwire._
 class AuctionLoader extends LagomApplicationLoader {
 
   override def load(context: LagomApplicationContext): LagomApplication =
-    new AuctionApplication(context) {
+    new AuctionApplicationWithKafka(context) {
       override def serviceLocator: ServiceLocator = NoServiceLocator
     }
 
   override def loadDevMode(context: LagomApplicationContext): LagomApplication =
-    new AuctionApplication(context) with LagomDevModeComponents
+    new AuctionApplicationWithKafka(context) with LagomDevModeComponents
 
   override def describeService = Some(readDescriptor[BiddingService])
 }
 
+abstract class AuctionApplicationWithKafka(context: LagomApplicationContext) extends AuctionApplication(context)
+  with LagomKafkaComponents
+
 abstract class AuctionApplication(context: LagomApplicationContext)
   extends LagomApplication(context)
     with CassandraPersistenceComponents
-    with LagomKafkaComponents
     with AhcWSComponents {
 
   // Bind the service that this server provides
